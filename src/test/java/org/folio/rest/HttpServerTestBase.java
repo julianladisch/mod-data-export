@@ -10,6 +10,7 @@ import org.junit.BeforeClass;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
@@ -33,7 +34,15 @@ public abstract class HttpServerTestBase {
     int port = NetworkUtils.nextFreePort();
     router = Router.router(vertx);
     httpServer = vertx.createHttpServer();
-    httpServer.requestHandler(router).listen(port);
+    CompletableFuture<HttpServer> deploymentComplete = new CompletableFuture<>();
+    httpServer.requestHandler(router).listen(port, result -> {
+      if(result.succeeded()) {
+        deploymentComplete.complete(result.result());
+      }
+      else {
+        deploymentComplete.completeExceptionally(result.cause());
+      }
+    });
 
     Map<String, String> okapiHeaders = new HashMap<>();
     okapiHeaders.put("x-okapi-url", HOST + port);
