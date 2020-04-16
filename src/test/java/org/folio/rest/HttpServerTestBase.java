@@ -11,6 +11,9 @@ import org.junit.BeforeClass;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TENANT;
 import static org.folio.rest.RestVerticle.OKAPI_HEADER_TOKEN;
@@ -29,20 +32,21 @@ public abstract class HttpServerTestBase {
   private static HttpServer httpServer;
 
   @BeforeClass
-  public static void setUpHttpServer() {
+  public static void setUpHttpServer() throws InterruptedException, ExecutionException, TimeoutException {
     vertx = Vertx.vertx();
     int port = NetworkUtils.nextFreePort();
     router = Router.router(vertx);
     httpServer = vertx.createHttpServer();
-    CompletableFuture<HttpServer> deploymentComplete = new CompletableFuture<>();
+    CompletableFuture<HttpServer> waitForDeployment = new CompletableFuture<>();
     httpServer.requestHandler(router).listen(port, result -> {
       if(result.succeeded()) {
-        deploymentComplete.complete(result.result());
+        waitForDeployment.complete(result.result());
       }
       else {
-        deploymentComplete.completeExceptionally(result.cause());
+        waitForDeployment.completeExceptionally(result.cause());
       }
     });
+    waitForDeployment.get(60, TimeUnit.SECONDS);
 
     Map<String, String> okapiHeaders = new HashMap<>();
     okapiHeaders.put("x-okapi-url", HOST + port);
