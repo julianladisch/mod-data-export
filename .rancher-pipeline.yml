@@ -1,0 +1,29 @@
+stages:
+  - name: Build
+    steps:
+      - runScriptConfig:
+          image: maven:3.6-adoptopenjdk-11
+          shellScript: mvn package -DskipTests
+  - name: Build Docker with DIND
+    steps:
+      - publishImageConfig:
+          dockerfilePath: ./Dockerfile
+          buildContext: .
+          tag: docker.ci.folio.org/mod-data-export:concorde-${CICD_EXECUTION_SEQUENCE}
+          pushRemote: true
+          registry: docker.dev.folio.org
+  - name: Deploy
+    steps:
+      - applyAppConfig:
+          catalogTemplate: p-rlq5p:concorde-helmcharts-mod-data-export
+          version: 0.1.30
+          answers:
+            image.repository: docker.ci.folio.org/mod-data-export
+            image.tag: concorde-${CICD_EXECUTION_SEQUENCE}
+            javaOptions: -XX:MaxRAMPercentage=85.0 -XX:+UseG1GC -Dbucket.name=folio-concorde
+            resources.limits.cpu: 250m
+            resources.limits.memory: 1Gi
+          targetNamespace: concorde
+          name: mod-data-export
+timeout: 60
+notification: {}
